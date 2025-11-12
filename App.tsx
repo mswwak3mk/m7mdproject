@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback } from 'react';
 import type { PortfolioData, Profile, ContentItem, SkillItem, Comment, ProjectItem } from './types';
 import useLocalStorage from './hooks/useLocalStorage';
@@ -191,7 +192,10 @@ function App() {
         {(data[listKey] as (ContentItem | SkillItem)[]).map((item) => {
             const IconComponent = 'icon' in item ? ICONS[item.icon] : null;
             return (
-              <Card key={item.id} className="relative text-center">
+              <Card 
+                key={item.id} 
+                className={`relative text-center ${listKey === 'skills' ? 'hover:border-cyan-400' : ''}`}
+              >
                   {isAdminView && <AdminButton onClick={() => handleDeleteItem(listKey, item.id)} />}
                   {IconComponent && <div className="text-purple-400 w-16 h-16 mx-auto mb-4 flex items-center justify-center"><IconComponent/></div>}
                   <h3 className="text-xl font-semibold">{item.text}</h3>
