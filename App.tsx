@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { PortfolioData, Profile, ContentItem, SkillItem, Comment, ProjectItem } from './types';
 import useLocalStorage from './hooks/useLocalStorage';
 import { ICONS, TrashIcon, SearchIcon } from './constants';
@@ -26,7 +26,6 @@ const initialData: PortfolioData = {
     { id: '2', text: "الاجتماعيات" },
     { id: '3', text: "البرمجة" },
     { id: '4', text: "الرياضيات" },
-    { id: '5', text: "الحاسب" },
     { id: '6', text: "الدراسات الإسلامية" },
   ],
   comments: [],
@@ -65,10 +64,23 @@ function App() {
   const [data, setData] = useLocalStorage<PortfolioData>('portfolio-data', initialData);
   const [isAdminView, setIsAdminView] = useState(false);
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+
+  const handleAdminToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isTryingToEnable = e.target.checked;
+    
+    if (isTryingToEnable) {
+      // Don't set state immediately. Open the modal for verification.
+      setIsPasswordModalOpen(true);
+    } else {
+      // If trying to disable, do it directly without a password.
+      setIsAdminView(false);
+    }
+  };
 
   const handleUpdateProfile = <K extends keyof Profile>(key: K, value: Profile[K]) => {
     setData(prev => ({ ...prev, profile: { ...prev.profile, [key]: value } }));
@@ -404,7 +416,62 @@ function App() {
             </div>
         </div>
     );
-};
+  };
+
+  const PasswordModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) => {
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            setPassword('');
+            setError('');
+            setTimeout(() => inputRef.current?.focus(), 100);
+        }
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (password === '7520') {
+            onSuccess();
+        } else {
+            setError('الرمز غير صحيح. حاول مرة أخرى.');
+            setPassword('');
+            inputRef.current?.focus();
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-slate-800 border border-purple-600 rounded-xl p-8 shadow-lg shadow-purple-900/40 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+                <h3 className="text-2xl font-bold text-cyan-300 mb-4 text-center">تفعيل واجهة الطالب</h3>
+                <p className="text-center text-slate-400 mb-6">الرجاء إدخال الرمز السري للمتابعة.</p>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input
+                        ref={inputRef}
+                        type="password"
+                        placeholder="أدخل الرمز هنا"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full text-center text-lg tracking-widest bg-slate-900 border border-purple-700 rounded-md p-3 focus:ring-2 focus:ring-cyan-400 focus:outline-none transition"
+                    />
+                    {error && <p className="text-red-400 text-center text-sm">{error}</p>}
+                    <div className="flex gap-4 pt-2">
+                         <button type="button" onClick={onClose} className="w-full bg-slate-600 hover:bg-slate-500 font-bold py-3 px-4 rounded-lg transition-colors">
+                            إلغاء
+                        </button>
+                        <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 font-bold py-3 px-4 rounded-lg transition-colors">
+                            تأكيد
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+  };
   
   const filteredProjects = data.projects.filter(project =>
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -434,7 +501,7 @@ function App() {
             <span className="text-xs sm:text-sm hidden md:inline">{isAdminView ? 'واجهة الطالب' : 'واجهة الزائر'}</span>
             <label htmlFor="admin-toggle" className="flex items-center cursor-pointer">
               <div className="relative">
-                <input id="admin-toggle" type="checkbox" className="sr-only peer" checked={isAdminView} onChange={() => setIsAdminView(!isAdminView)} />
+                <input id="admin-toggle" type="checkbox" className="sr-only peer" checked={isAdminView} onChange={handleAdminToggle} />
                 <div className="block bg-slate-700 w-14 h-8 rounded-full"></div>
                 <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform transform peer-checked:translate-x-full peer-checked:bg-cyan-300"></div>
               </div>
@@ -443,6 +510,14 @@ function App() {
         </div>
       </header>
       
+      <PasswordModal
+          isOpen={isPasswordModalOpen}
+          onClose={() => setIsPasswordModalOpen(false)}
+          onSuccess={() => {
+              setIsAdminView(true);
+              setIsPasswordModalOpen(false);
+          }}
+      />
       <SkillModal isOpen={isSkillModalOpen} onClose={() => setIsSkillModalOpen(false)} onSave={handleAddSkill} />
 
       <main className="container mx-auto p-4 md:p-8">
