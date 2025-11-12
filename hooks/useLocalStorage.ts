@@ -1,6 +1,15 @@
-// Fix: Import React to resolve 'Cannot find namespace React' error for type annotations.
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
+/**
+ * A custom hook for persisting state to localStorage.
+ * This version is enhanced to be more robust against stale state issues
+ * by wrapping the update logic within a useCallback and using the functional
+ * form of the state setter.
+ *
+ * @param key The key to use in localStorage.
+ * @param initialValue The initial value to use if no value is found in localStorage.
+ * @returns A stateful value, and a function to update it.
+ */
 function useLocalStorage<T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === 'undefined') {
@@ -10,45 +19,54 @@ function useLocalStorage<T,>(key: string, initialValue: T): [T, React.Dispatch<R
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.log(error);
+      console.error("Error reading from localStorage", key, error);
       return initialValue;
     }
   });
 
-  // Persist state to localStorage whenever it changes
-  useEffect(() => {
+  const setValue: React.Dispatch<React.SetStateAction<T>> = useCallback((value) => {
     try {
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(storedValue));
-      }
+      // We use the functional update form of setState to ensure we always have the latest state.
+      setStoredValue(currentValue => {
+        // The value can be a new value, or a function that receives the previous state.
+        const valueToStore = value instanceof Function ? value(currentValue) : value;
+        
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        }
+        
+        return valueToStore;
+      });
     } catch (error) {
-      console.log(error);
+      console.error("Error writing to localStorage", key, error);
     }
-  }, [key, storedValue]);
+  }, [key]);
 
+  // Effect to listen for changes in other tabs
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-        if (e.key === key) {
-            try {
-                if(e.newValue) {
-                    setStoredValue(JSON.parse(e.newValue));
-                }
-            } catch (error) {
-                console.log(error);
-            }
+      if (e.key !== key) {
+        return;
+      }
+      try {
+        if (e.newValue) {
+          setStoredValue(JSON.parse(e.newValue));
+        } else {
+          // The value was removed in another tab, reset to initialValue.
+          setStoredValue(initialValue);
         }
+      } catch (error) {
+        console.error("Error parsing storage change", key, error);
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => {
-        window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('storage', handleStorageChange);
     };
-  }, [key]);
-  
-  // By returning `setStoredValue` directly from `useState`, we ensure that
-  // functional updates (e.g., `setData(prev => ...)`) receive the latest state,
-  // fixing the stale state bug.
-  return [storedValue, setStoredValue];
+  }, [key, initialValue]);
+
+  return [storedValue, setValue];
 }
 
 export default useLocalStorage;

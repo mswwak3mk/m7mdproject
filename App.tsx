@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import type { PortfolioData, Profile, ContentItem, SkillItem, Comment, ProjectItem } from './types';
 import useLocalStorage from './hooks/useLocalStorage';
-import { ICONS } from './constants';
+import { ICONS, TrashIcon } from './constants';
 
 const initialData: PortfolioData = {
   profile: {
@@ -24,6 +23,10 @@ const initialData: PortfolioData = {
   subjects: [
     { id: '1', text: "العلوم" },
     { id: '2', text: "الاجتماعيات" },
+    { id: '3', text: "البرمجة" },
+    { id: '4', text: "الرياضيات" },
+    { id: '5', text: "الحاسب" },
+    { id: '6', text: "الدراسات الإسلامية" },
   ],
   comments: [],
 };
@@ -43,11 +46,17 @@ const Section: React.FC<{ title: string; children: React.ReactNode; id: string }
   </section>
 );
 
-const AdminButton: React.FC<{ onClick: () => void; children: React.ReactNode; className?: string }> = ({ onClick, children, className }) => (
-  <button onClick={onClick} className={`absolute -top-3 -right-3 bg-red-500 text-white rounded-full h-7 w-7 flex items-center justify-center text-xs font-bold transition-transform hover:scale-110 hover:bg-red-400 ${className}`}>
-    {children}
+const AdminButton: React.FC<{ onClick: () => void; className?: string }> = ({ onClick, className }) => (
+  <button 
+    onClick={onClick} 
+    title="حذف"
+    aria-label="Delete item"
+    className={`absolute top-3 right-3 bg-slate-700/50 text-slate-300 rounded-full p-2 flex items-center justify-center transition-all duration-200 hover:bg-red-500 hover:text-white hover:scale-110 hover:rotate-12 ${className}`}
+  >
+    <TrashIcon />
   </button>
 );
+
 
 // --- MAIN APP COMPONENT ---
 
@@ -173,7 +182,7 @@ function App() {
             const IconComponent = 'icon' in item ? ICONS[item.icon] : null;
             return (
               <Card key={item.id} className="relative text-center">
-                  {isAdminView && <AdminButton onClick={() => handleDeleteItem(listKey, item.id)}>X</AdminButton>}
+                  {isAdminView && <AdminButton onClick={() => handleDeleteItem(listKey, item.id)} />}
                   {IconComponent && <div className="text-purple-400 w-16 h-16 mx-auto mb-4 flex items-center justify-center"><IconComponent/></div>}
                   <h3 className="text-xl font-semibold">{item.text}</h3>
               </Card>
@@ -188,37 +197,86 @@ function App() {
     </Section>
   );
 
-  const ProjectsSection = () => (
+  const ProjectsSection = () => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const scroll = (direction: 'left' | 'right') => {
+      if (scrollContainerRef.current) {
+        const scrollAmount = scrollContainerRef.current.clientWidth * 0.8; // Scroll by 80% of the visible width
+        scrollContainerRef.current.scrollBy({
+          left: direction === 'left' ? -scrollAmount : scrollAmount,
+          behavior: 'smooth',
+        });
+      }
+    };
+
+    return (
       <Section title="مشاريعي" id="projects">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {data.projects.map((project) => (
-            <Card key={project.id} className="relative flex flex-col justify-between">
-              {isAdminView && <AdminButton onClick={() => handleDeleteItem('projects', project.id)}>X</AdminButton>}
-              <div>
-                <h3 className="text-2xl font-bold text-cyan-400 mb-2">{project.title}</h3>
-                <p className="text-slate-300 mb-4">{project.description}</p>
+        <div className="relative group"> {/* Use group for showing arrows on hover */}
+          {/* Carousel Container */}
+          <div
+            ref={scrollContainerRef}
+            className="flex items-stretch overflow-x-auto snap-x snap-mandatory scroll-smooth py-4 gap-6 md:gap-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          >
+            {/* Project Cards */}
+            {data.projects.map((project) => (
+              <div key={project.id} className="snap-center flex-shrink-0 w-full sm:w-[calc(50%-0.75rem)] md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.33rem)]">
+                <Card className="h-full !scale-100 flex flex-col justify-between"> {/* Full height card */}
+                  {isAdminView && <AdminButton onClick={() => handleDeleteItem('projects', project.id)} />}
+                  <div>
+                    <h3 className="text-2xl font-bold text-cyan-400 mb-2">{project.title}</h3>
+                    <p className="text-slate-300 mb-4">{project.description}</p>
+                  </div>
+                  <a
+                    href={project.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 block text-center w-full bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-purple-900/50 hover:shadow-cyan-500/40"
+                  >
+                    مشاهدة المشروع
+                  </a>
+                </Card>
               </div>
-              <a
-                href={project.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 block text-center w-full bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-purple-900/50 hover:shadow-cyan-500/40"
+            ))}
+
+            {/* Admin "Add" Card */}
+            {isAdminView && (
+              <div className="snap-center flex-shrink-0 w-full sm:w-[calc(50%-0.75rem)] md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.33rem)]">
+                <button
+                  onClick={handleAddProject}
+                  className="w-full h-full border-2 border-dashed border-purple-500 rounded-xl flex items-center justify-center text-purple-400 hover:bg-purple-500/10 hover:text-cyan-300 transition-colors duration-300 min-h-[250px]"
+                >
+                  + إضافة مشروع جديد
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Buttons - Show if projects exist */}
+          {data.projects.length > 0 && (
+            <>
+              {/* Left Arrow */}
+              <button
+                onClick={() => scroll('left')}
+                aria-label="المشروع السابق"
+                className="absolute top-1/2 -left-4 transform -translate-y-1/2 bg-slate-800/80 backdrop-blur-sm rounded-full p-2.5 text-white hover:bg-purple-600 transition-all z-10 opacity-0 group-hover:opacity-100 focus:opacity-100"
               >
-                مشاهدة المشروع
-              </a>
-            </Card>
-          ))}
-          {isAdminView && (
-            <button
-              onClick={handleAddProject}
-              className="border-2 border-dashed border-purple-500 rounded-xl flex items-center justify-center text-purple-400 hover:bg-purple-500/10 hover:text-cyan-300 transition-colors duration-300 min-h-[150px]"
-            >
-              + إضافة مشروع جديد
-            </button>
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              {/* Right Arrow */}
+              <button
+                onClick={() => scroll('right')}
+                aria-label="المشروع التالي"
+                className="absolute top-1/2 -right-4 transform -translate-y-1/2 bg-slate-800/80 backdrop-blur-sm rounded-full p-2.5 text-white hover:bg-purple-600 transition-all z-10 opacity-0 group-hover:opacity-100 focus:opacity-100"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </>
           )}
         </div>
-      </Section>
-  );
+      </section>
+    );
+  };
 
   const CommentsSection = () => {
     const [author, setAuthor] = useState('');
@@ -263,7 +321,7 @@ function App() {
                     {data.comments.length === 0 && <p className="text-center text-slate-400">لا توجد تعليقات بعد.</p>}
                     {data.comments.map(comment => (
                         <Card key={comment.id} className="relative">
-                             {isAdminView && <AdminButton onClick={() => handleDeleteComment(comment.id)}>X</AdminButton>}
+                             {isAdminView && <AdminButton onClick={() => handleDeleteComment(comment.id)} />}
                             <p className="text-slate-300 mb-2">{comment.text}</p>
                             <div className="flex justify-between items-center text-sm text-purple-400">
                                 <span>- {comment.author}</span>
