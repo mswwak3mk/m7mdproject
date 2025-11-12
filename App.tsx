@@ -51,7 +51,7 @@ const AdminButton: React.FC<{ onClick: () => void; className?: string }> = ({ on
     onClick={onClick} 
     title="حذف"
     aria-label="Delete item"
-    className={`absolute top-3 right-3 bg-slate-700/50 text-slate-300 rounded-full p-2 flex items-center justify-center transition-all duration-200 hover:bg-red-500 hover:text-white hover:scale-110 hover:rotate-12 ${className}`}
+    className={`absolute top-3 right-3 bg-slate-700/50 text-slate-300 rounded-full p-2 flex items-center justify-center transition-all duration-200 hover:bg-red-500 hover:text-white hover:scale-110 hover:rotate-12 z-20 ${className}`}
   >
     <TrashIcon />
   </button>
@@ -66,7 +66,9 @@ function App() {
   const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectImageInputRef = useRef<HTMLInputElement>(null);
   
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -158,6 +160,46 @@ function App() {
     }
   };
   
+    const handleProjectImageChange = (projectId: string) => {
+        setEditingProjectId(projectId);
+        projectImageInputRef.current?.click();
+    };
+
+    const handleProjectImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!editingProjectId) return;
+
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setData(prev => ({
+                    ...prev,
+                    projects: prev.projects.map(p =>
+                        p.id === editingProjectId ? { ...p, image: reader.result as string } : p
+                    )
+                }));
+                setEditingProjectId(null);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            setEditingProjectId(null);
+        }
+        if (event.target) {
+            event.target.value = '';
+        }
+    };
+    
+    const handleRemoveProjectImage = (projectId: string) => {
+        if (window.confirm("هل أنت متأكد من حذف صورة المشروع؟")) {
+            setData(prev => ({
+                ...prev,
+                projects: prev.projects.map(p =>
+                    p.id === projectId ? { ...p, image: null } : p
+                )
+            }));
+        }
+    };
+
   const ProfileSection = useCallback(() => (
     <Section title="عني" id="about">
       <div className="flex flex-col md:flex-row items-center justify-center gap-10">
@@ -238,34 +280,73 @@ function App() {
 
     return (
       <Section title="مشاريعي" id="projects">
-        <div className="relative group"> {/* Use group for showing arrows on hover */}
-          {/* Carousel Container */}
+        <input
+            type="file"
+            ref={projectImageInputRef}
+            onChange={handleProjectImageUpload}
+            className="hidden"
+            accept="image/*"
+        />
+        <div className="relative group">
           <div
             ref={scrollContainerRef}
             className="flex items-stretch overflow-x-auto snap-x snap-mandatory scroll-smooth py-4 gap-6 md:gap-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            {/* Project Cards */}
             {projects.map((project) => (
               <div key={project.id} className="snap-center flex-shrink-0 w-full sm:w-[calc(50%-0.75rem)] md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.33rem)]">
-                <Card className="h-full !scale-100 flex flex-col justify-between bg-gradient-to-br from-slate-800/50 to-purple-900/30"> {/* Full height card */}
-                  {isAdminView && <AdminButton onClick={() => handleDeleteItem('projects', project.id)} />}
-                  <div>
-                    <h3 className="text-2xl font-bold text-cyan-400 mb-2">{project.title}</h3>
-                    <p className="text-slate-300 mb-4">{project.description}</p>
-                  </div>
-                  <a
-                    href={project.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 block text-center w-full bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-purple-900/50 hover:shadow-cyan-500/40 hover:shadow-xl hover:-translate-y-1"
-                  >
-                    مشاهدة المشروع
-                  </a>
+                <Card className="h-full !scale-100 flex flex-col bg-gradient-to-br from-slate-800/50 to-purple-900/30 !p-0 overflow-hidden">
+                    {isAdminView && <AdminButton onClick={() => handleDeleteItem('projects', project.id)} />}
+                    <div className="relative">
+                        {project.image ? (
+                            <img src={project.image} alt={project.title} className="w-full h-48 object-cover"/>
+                        ) : (
+                            isAdminView ? (
+                                <div className="w-full h-48 bg-slate-700/50 flex items-center justify-center">
+                                    <button
+                                        onClick={() => handleProjectImageChange(project.id)}
+                                        className="border-2 border-dashed border-purple-500 rounded-lg px-6 py-3 text-purple-400 hover:bg-purple-500/10 hover:text-cyan-300 transition-colors"
+                                    >
+                                        + إضافة صورة
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="w-full h-48 bg-slate-700/50 flex items-center justify-center text-slate-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                </div>
+                            )
+                        )}
+                        {isAdminView && project.image && (
+                            <div className="absolute bottom-2 right-2 flex gap-2">
+                               <button
+                                  onClick={() => handleProjectImageChange(project.id)}
+                                  className="bg-slate-900/70 text-xs text-white px-3 py-1 rounded-md hover:bg-cyan-600 transition-colors"
+                               >
+                                 تغيير
+                               </button>
+                               <button
+                                  onClick={() => handleRemoveProjectImage(project.id)}
+                                  className="bg-red-600/80 text-xs text-white px-3 py-1 rounded-md hover:bg-red-500 transition-colors"
+                              >
+                                  حذف
+                              </button>
+                            </div>
+                        )}
+                    </div>
+                    <div className="p-6 flex flex-col flex-grow">
+                        <h3 className="text-2xl font-bold text-cyan-400 mb-2">{project.title}</h3>
+                        <p className="text-slate-300 mb-4 flex-grow">{project.description}</p>
+                        <a
+                            href={project.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-auto block text-center w-full bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-purple-900/50 hover:shadow-cyan-500/40 hover:shadow-xl hover:-translate-y-1"
+                        >
+                            مشاهدة المشروع
+                        </a>
+                    </div>
                 </Card>
               </div>
             ))}
-
-            {/* Admin "Add" Card */}
             {isAdminView && (
               <div className="snap-center flex-shrink-0 w-full sm:w-[calc(50%-0.75rem)] md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.33rem)]">
                 <button
@@ -277,11 +358,8 @@ function App() {
               </div>
             )}
           </div>
-
-          {/* Navigation Buttons - Show if projects exist */}
           {projects.length > 0 && (
             <>
-              {/* Left Arrow */}
               <button
                 onClick={() => scroll('left')}
                 aria-label="المشروع السابق"
@@ -289,7 +367,6 @@ function App() {
               >
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
               </button>
-              {/* Right Arrow */}
               <button
                 onClick={() => scroll('right')}
                 aria-label="المشروع التالي"
@@ -318,7 +395,6 @@ function App() {
     return (
         <Section title="آراء المعلمين" id="comments">
             <div className="max-w-3xl mx-auto">
-                {/* Add comment form */}
                 <Card className="mb-12">
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <h3 className="text-xl font-bold text-cyan-300">أضف تعليقك</h3>
@@ -341,8 +417,6 @@ function App() {
                         </button>
                     </form>
                 </Card>
-
-                {/* Display comments */}
                 <div className="space-y-6">
                     {data.comments.length === 0 && <p className="text-center text-slate-400">لا توجد تعليقات بعد.</p>}
                     {data.comments.map(comment => (
