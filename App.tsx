@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import type { PortfolioData, Profile, ContentItem, SkillItem, Comment, ProjectItem } from './types';
 import useLocalStorage from './hooks/useLocalStorage';
-import { ICONS, TrashIcon } from './constants';
+import { ICONS, TrashIcon, SearchIcon } from './constants';
 
 const initialData: PortfolioData = {
   profile: {
@@ -63,6 +63,8 @@ const AdminButton: React.FC<{ onClick: () => void; className?: string }> = ({ on
 function App() {
   const [data, setData] = useLocalStorage<PortfolioData>('portfolio-data', initialData);
   const [isAdminView, setIsAdminView] = useState(false);
+  const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -82,14 +84,22 @@ function App() {
     }
   };
 
-  const handleAddItem = (list: keyof Omit<PortfolioData, 'profile' | 'comments' | 'projects'>) => {
-    const newItemText = prompt(`أدخل نص ${list === 'achievements' ? 'الإنجاز' : list === 'skills' ? 'المهارة' : 'المادة'} الجديد:`);
+  const handleAddItem = (list: keyof Omit<PortfolioData, 'profile' | 'comments' | 'projects' | 'skills'>) => {
+    const newItemText = prompt(`أدخل نص ${list === 'achievements' ? 'الإنجاز' : 'المادة'} الجديد:`);
     if (newItemText) {
-      const newItem: ContentItem | SkillItem = list === 'skills'
-        ? { id: generateId(), text: newItemText, icon: "gamepad" } // Default icon
-        : { id: generateId(), text: newItemText };
+      const newItem: ContentItem = { id: generateId(), text: newItemText };
       setData(prev => ({ ...prev, [list]: [...prev[list], newItem] }));
     }
+  };
+  
+  const handleAddSkill = (skillName: string, iconName: string) => {
+      if(skillName.trim() === '') {
+        alert("يرجى إدخال اسم المهارة.");
+        return;
+      }
+      const newSkill: SkillItem = { id: generateId(), text: skillName, icon: iconName };
+      setData(prev => ({ ...prev, skills: [...prev.skills, newSkill] }));
+      setIsSkillModalOpen(false);
   };
 
   const handleAddProject = () => {
@@ -189,7 +199,7 @@ function App() {
             )
         })}
         {isAdminView && (
-            <button onClick={() => handleAddItem(listKey)} className="border-2 border-dashed border-purple-500 rounded-xl flex items-center justify-center text-purple-400 hover:bg-purple-500/10 hover:text-cyan-300 transition-colors duration-300 min-h-[150px]">
+            <button onClick={() => listKey === 'skills' ? setIsSkillModalOpen(true) : handleAddItem(listKey as any)} className="border-2 border-dashed border-purple-500 rounded-xl flex items-center justify-center text-purple-400 hover:bg-purple-500/10 hover:text-cyan-300 transition-colors duration-300 min-h-[150px]">
                 + إضافة جديد
             </button>
         )}
@@ -197,7 +207,7 @@ function App() {
     </Section>
   );
 
-  const ProjectsSection = () => {
+  const ProjectsSection = ({ projects }: { projects: ProjectItem[] }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const scroll = (direction: 'left' | 'right') => {
@@ -219,7 +229,7 @@ function App() {
             className="flex items-stretch overflow-x-auto snap-x snap-mandatory scroll-smooth py-4 gap-6 md:gap-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             {/* Project Cards */}
-            {data.projects.map((project) => (
+            {projects.map((project) => (
               <div key={project.id} className="snap-center flex-shrink-0 w-full sm:w-[calc(50%-0.75rem)] md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.33rem)]">
                 <Card className="h-full !scale-100 flex flex-col justify-between"> {/* Full height card */}
                   {isAdminView && <AdminButton onClick={() => handleDeleteItem('projects', project.id)} />}
@@ -253,7 +263,7 @@ function App() {
           </div>
 
           {/* Navigation Buttons - Show if projects exist */}
-          {data.projects.length > 0 && (
+          {projects.length > 0 && (
             <>
               {/* Left Arrow */}
               <button
@@ -334,29 +344,107 @@ function App() {
         </Section>
     );
   };
+
+  const SkillModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: () => void; onSave: (skillName: string, iconName: string) => void }) => {
+    const [skillName, setSkillName] = useState('');
+    const [selectedIcon, setSelectedIcon] = useState(Object.keys(ICONS)[0]);
+
+    if (!isOpen) return null;
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(skillName, selectedIcon);
+        setSkillName('');
+        setSelectedIcon(Object.keys(ICONS)[0]);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-slate-800 border border-purple-600 rounded-xl p-8 shadow-lg shadow-purple-900/40 w-full max-w-md" onClick={e => e.stopPropagation()}>
+                <h3 className="text-2xl font-bold text-cyan-300 mb-6 text-center">إضافة مهارة جديدة</h3>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <input
+                        type="text"
+                        placeholder="اسم المهارة"
+                        value={skillName}
+                        onChange={(e) => setSkillName(e.target.value)}
+                        className="w-full bg-slate-900 border border-purple-700 rounded-md p-3 focus:ring-2 focus:ring-cyan-400 focus:outline-none transition"
+                        autoFocus
+                    />
+                    <div>
+                        <p className="text-purple-300 mb-3 text-center">اختر أيقونة:</p>
+                        <div className="grid grid-cols-4 gap-4">
+                            {Object.entries(ICONS).map(([key, IconComponent]) => (
+                                <button
+                                    type="button"
+                                    key={key}
+                                    onClick={() => setSelectedIcon(key)}
+                                    className={`p-4 rounded-lg flex items-center justify-center transition-all ${selectedIcon === key ? 'bg-cyan-500/20 ring-2 ring-cyan-400' : 'bg-slate-700/50 hover:bg-purple-500/20'}`}
+                                >
+                                    <div className="w-8 h-8 text-slate-200">
+                                        <IconComponent />
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-4 pt-4">
+                        <button type="button" onClick={onClose} className="w-full bg-slate-600 hover:bg-slate-500 font-bold py-3 px-4 rounded-lg transition-colors">
+                            إلغاء
+                        </button>
+                        <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 font-bold py-3 px-4 rounded-lg transition-colors">
+                            حفظ المهارة
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
   
+  const filteredProjects = data.projects.filter(project =>
+      project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="bg-slate-900 min-h-screen text-slate-100 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]">
       <header className="p-4 sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-purple-800/50">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-xl md:text-2xl font-bold font-orbitron text-cyan-400">ملف إنجاز: محمد كمال خليل</h1>
-          <div className="flex items-center space-x-4 space-x-reverse">
-            <span className="text-sm">{isAdminView ? 'واجهة الطالب' : 'واجهة الزائر'}</span>
+        <div className="container mx-auto flex justify-between items-center gap-4">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold font-orbitron text-cyan-400 whitespace-nowrap">ملف إنجاز: محمد</h1>
+          
+          <div className="relative flex-grow max-w-lg">
+            <input 
+              type="text"
+              placeholder="ابحث عن مشروع..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-800/60 border border-purple-700 rounded-full py-2 pl-10 pr-4 focus:ring-2 focus:ring-cyan-400 focus:outline-none transition placeholder:text-slate-400"
+            />
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400">
+              <SearchIcon />
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2 md:space-x-4 space-x-reverse">
+            <span className="text-xs sm:text-sm hidden md:inline">{isAdminView ? 'واجهة الطالب' : 'واجهة الزائر'}</span>
             <label htmlFor="admin-toggle" className="flex items-center cursor-pointer">
               <div className="relative">
-                <input id="admin-toggle" type="checkbox" className="sr-only" checked={isAdminView} onChange={() => setIsAdminView(!isAdminView)} />
+                <input id="admin-toggle" type="checkbox" className="sr-only peer" checked={isAdminView} onChange={() => setIsAdminView(!isAdminView)} />
                 <div className="block bg-slate-700 w-14 h-8 rounded-full"></div>
-                <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform transform peer-checked:translate-x-full"></div>
+                <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform transform peer-checked:translate-x-full peer-checked:bg-cyan-300"></div>
               </div>
             </label>
           </div>
         </div>
       </header>
+      
+      <SkillModal isOpen={isSkillModalOpen} onClose={() => setIsSkillModalOpen(false)} onSave={handleAddSkill} />
 
       <main className="container mx-auto p-4 md:p-8">
         <ProfileSection />
         <GenericSection listKey="achievements" title="إنجازاتي" />
-        <ProjectsSection />
+        <ProjectsSection projects={filteredProjects} />
         <GenericSection listKey="skills" title="مهاراتي" />
         <GenericSection listKey="subjects" title="المواد المفضلة" />
         <CommentsSection />
