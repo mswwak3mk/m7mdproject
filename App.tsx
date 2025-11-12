@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback } from 'react';
-import type { PortfolioData, Profile, ContentItem, SkillItem, Comment } from './types';
+import type { PortfolioData, Profile, ContentItem, SkillItem, Comment, ProjectItem } from './types';
 import useLocalStorage from './hooks/useLocalStorage';
 import { ICONS } from './constants';
 
@@ -14,6 +14,7 @@ const initialData: PortfolioData = {
     { id: '1', text: "إنشاء لعبة إلكترونية" },
     { id: '2', text: "متفوق في الإلكترونيات" },
   ],
+  projects: [],
   skills: [
     { id: '1', text: "الألعاب الإلكترونية", icon: "gamepad" },
     { id: '2', text: "كرة القدم", icon: "soccer" },
@@ -72,7 +73,7 @@ function App() {
     }
   };
 
-  const handleAddItem = (list: keyof Omit<PortfolioData, 'profile' | 'comments'>) => {
+  const handleAddItem = (list: keyof Omit<PortfolioData, 'profile' | 'comments' | 'projects'>) => {
     const newItemText = prompt(`أدخل نص ${list === 'achievements' ? 'الإنجاز' : list === 'skills' ? 'المهارة' : 'المادة'} الجديد:`);
     if (newItemText) {
       const newItem: ContentItem | SkillItem = list === 'skills'
@@ -80,6 +81,23 @@ function App() {
         : { id: generateId(), text: newItemText };
       setData(prev => ({ ...prev, [list]: [...prev[list], newItem] }));
     }
+  };
+
+  const handleAddProject = () => {
+    const title = prompt("أدخل عنوان المشروع:");
+    if (!title) return;
+    const description = prompt("أدخل وصف المشروع:");
+    if (!description) return;
+    const link = prompt("أدخل رابط المشروع (https://...):");
+    if (!link) return;
+
+    const newProject: ProjectItem = {
+        id: generateId(),
+        title,
+        description,
+        link
+    };
+    setData(prev => ({ ...prev, projects: [...prev.projects, newProject] }));
   };
   
   const handleDeleteItem = (list: keyof Omit<PortfolioData, 'profile' | 'comments'>, id: string) => {
@@ -148,7 +166,7 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [data.profile, isAdminView]);
 
-  const GenericSection = ({ listKey, title }: { listKey: keyof Omit<PortfolioData, 'profile' | 'comments'>, title: string}) => (
+  const GenericSection = ({ listKey, title }: { listKey: keyof Omit<PortfolioData, 'profile' | 'comments' | 'projects'>, title: string}) => (
     <Section title={title} id={listKey}>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {(data[listKey] as (ContentItem | SkillItem)[]).map((item) => {
@@ -168,6 +186,38 @@ function App() {
         )}
       </div>
     </Section>
+  );
+
+  const ProjectsSection = () => (
+      <Section title="مشاريعي" id="projects">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {data.projects.map((project) => (
+            <Card key={project.id} className="relative flex flex-col justify-between">
+              {isAdminView && <AdminButton onClick={() => handleDeleteItem('projects', project.id)}>X</AdminButton>}
+              <div>
+                <h3 className="text-2xl font-bold text-cyan-400 mb-2">{project.title}</h3>
+                <p className="text-slate-300 mb-4">{project.description}</p>
+              </div>
+              <a
+                href={project.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 block text-center w-full bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-purple-900/50 hover:shadow-cyan-500/40"
+              >
+                مشاهدة المشروع
+              </a>
+            </Card>
+          ))}
+          {isAdminView && (
+            <button
+              onClick={handleAddProject}
+              className="border-2 border-dashed border-purple-500 rounded-xl flex items-center justify-center text-purple-400 hover:bg-purple-500/10 hover:text-cyan-300 transition-colors duration-300 min-h-[150px]"
+            >
+              + إضافة مشروع جديد
+            </button>
+          )}
+        </div>
+      </Section>
   );
 
   const CommentsSection = () => {
@@ -248,6 +298,7 @@ function App() {
       <main className="container mx-auto p-4 md:p-8">
         <ProfileSection />
         <GenericSection listKey="achievements" title="إنجازاتي" />
+        <ProjectsSection />
         <GenericSection listKey="skills" title="مهاراتي" />
         <GenericSection listKey="subjects" title="المواد المفضلة" />
         <CommentsSection />
