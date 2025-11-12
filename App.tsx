@@ -235,7 +235,7 @@ function App() {
             {/* Project Cards */}
             {projects.map((project) => (
               <div key={project.id} className="snap-center flex-shrink-0 w-full sm:w-[calc(50%-0.75rem)] md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.33rem)]">
-                <Card className="h-full !scale-100 flex flex-col justify-between"> {/* Full height card */}
+                <Card className="h-full !scale-100 flex flex-col justify-between bg-gradient-to-br from-slate-800/50 to-purple-900/30"> {/* Full height card */}
                   {isAdminView && <AdminButton onClick={() => handleDeleteItem('projects', project.id)} />}
                   <div>
                     <h3 className="text-2xl font-bold text-cyan-400 mb-2">{project.title}</h3>
@@ -245,7 +245,7 @@ function App() {
                     href={project.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 block text-center w-full bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-purple-900/50 hover:shadow-cyan-500/40"
+                    className="mt-4 block text-center w-full bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-purple-900/50 hover:shadow-cyan-500/40 hover:shadow-xl hover:-translate-y-1"
                   >
                     مشاهدة المشروع
                   </a>
